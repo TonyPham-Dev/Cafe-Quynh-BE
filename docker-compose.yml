@@ -1,0 +1,87 @@
+version: '3.4'
+services:
+  postgres:
+    container_name: postgres
+    restart: 'unless-stopped'
+    image: postgres
+    environment:
+      - POSTGRES_USER=sample
+      - POSTGRES_PASSWORD=sample__postgres123a
+      - POSTGRES_DB=sample
+    networks:
+      - sample
+    ports:
+      - '5432:5432'
+    expose:
+      - 5432
+    logging:
+      driver: 'json-file'
+      options:
+        tag: '{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}'
+        max-size: '50m'
+    volumes:
+      - ./Services_Data/sample/postgres:/var/lib/postgresql/data/
+    deploy:
+      resources:
+        limits:
+          memory: '256m'
+  redis:
+    container_name: redis
+    restart: 'unless-stopped'
+    image: redis:latest
+    command: redis-server --requirepass "sample_123"
+    networks:
+      - sample
+    ports:
+      - '6379:6379'
+    logging:
+      driver: 'json-file'
+      options:
+        tag: '{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}'
+        max-size: '50m'
+    volumes:
+      - ./Services_Data/sample/redis_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: '256m'
+  minio:
+    image: minio/minio
+    container_name: minio
+    command: 'server --address ":9000" --console-address ":9001" /data'
+    networks:
+      - sample
+    restart: 'unless-stopped'
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - ./Services_Data/minio_data:/data
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+
+  sample:
+    container_name: sample
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - sample
+    ports:
+      - '3030:3030'
+    environment:
+      NODE_ENV: development
+      JWT_ACCESS_SECRET: jw+FBh5k6A3ugXEarmBPBE2DlOx16WMxtjXb9Iu5QedMQsK5xiKUAjfQOB24+P8+0SHrxh416jyACtcU6ANZkS6qTovNL+jDtf86YiWCXXqbYBIIrnhboAVGdit39VZ2vwKOqFTmQaBaAH0SzGOqx+Ar9DPlIEJHzTcYz3sS8I21x44XlFky8UTkqMm3Fv3j6OTA4i19mu3DDQwp+mpmvnc4CpAWJ5uhdEhBUUdZEQgz8l299UtiTxgGieXzJ2a1hhQWhSelUQFpL6RI7Wk8t19eoPrlk+LvbzXaq4JuJYIDXn9QKnXO2veYnry8qa+tbLBOgbVK2ycvkjBtcQBghQ==
+      JWT_REFRESH_SECRET: euN+m3v3gls7Wa9bWE4UVNywyhXV2RtOInaoOkj6knC7H3PY3dCjwbawTFBYpSeeDXaYrry/QJ1EL0AhGCYFmyixPIYdRGawLAfhDaQo/+re9u2vdEWHHnWH3dsHM2mLtNzrYNqIfJGBMTBLyX7+HFv5z082PGV7Zu9/mS5Zop4vsS7l0fA4IUYbBHA76tRpn20RbyaxuTX4JfzBGtEKemhrTWUyBG0cZns+mTr1Le/yCEvZKcw6Njyz6YRGANXlMeHMIVgPoCFFES
+      HOST: localhost
+      PORT: 3030
+    depends_on:
+      - postgres
+      - redis
+volumes:
+  Services_Data: {}
+
+networks:
+  sample:
+    driver: bridge

@@ -1,0 +1,89 @@
+image: public.ecr.aws/docker/library/docker:latest
+
+stages:
+  - build
+  - push
+
+before_script:
+  - if ! command -v aws &> /dev/null; then
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" &&
+    sudo apt-get update &&
+    sudo apt-get install -y unzip curl &&
+    unzip awscliv2.zip &&
+    sudo ./aws/install;
+    else
+    echo "AWS CLI đã được cài đặt";
+    fi
+  - aws --version
+  - docker --version
+  - echo $AWS_ACCOUNT_ID
+  - echo $AWS_REGION
+  - echo $REGISTRY_NAME
+  - echo $IMAGE_TAG_RELEASE
+  - echo $IMAGE_TAG
+
+build_and_push_image_development:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "feature/cicd"
+      when: manual
+  script:
+    - export ECR_REPOSITORY_URL=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+    - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URL
+    - docker build --cache-from $ECR_REPOSITORY_URL -t $REGISTRY_NAME:$IMAGE_TAG .
+    - docker tag $REGISTRY_NAME:$IMAGE_TAG $ECR_REPOSITORY_URL/$REGISTRY_NAME:$IMAGE_TAG
+    - docker push $ECR_REPOSITORY_URL/$REGISTRY_NAME:$IMAGE_TAG
+
+build_and_push_image_production:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_BRANCH == "release"
+      when: manual
+  script:
+    - export ECR_REPOSITORY_URL=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+    - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URL
+    - docker build --cache-from $ECR_REPOSITORY_URL -t $REGISTRY_NAME:$IMAGE_TAG_RELEASE .
+    - docker tag $REGISTRY_NAME:$IMAGE_TAG_RELEASE $ECR_REPOSITORY_URL/$REGISTRY_NAME:$IMAGE_TAG_RELEASE
+    - docker push $ECR_REPOSITORY_URL/$REGISTRY_NAME:$IMAGE_TAG_RELEASE
+
+deploy_development:
+  stage: push
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "feature/cicd"
+  script:
+    - echo "$SSH_PRIVATE_KEY" > key.pem
+    - chmod 600 key.pem
+    - |
+      ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_PUBLIC_IP << 'ENDSSH'
+        cd /home/ubuntu/deploy
+        docker-compose --env-file .env_server stop api-telecom
+        docker system prune -af
+        docker-compose --env-file .env_server pull api-telecom
+        docker-compose --env-file .env_server up -d --build api-telecom
+      ENDSSH
+    - rm key.pem
+
+deploy_production:
+  stage: push
+  rules:
+    - if: $CI_COMMIT_BRANCH == "release"
+  script:
+    - echo "$PROD_SSH_PRIVATE_KEY"
+    - echo "$PROD_EC2_USER"
+    - echo "$PROD_EC2_PUBLIC_IP"
+    - echo "$PROD_SSH_PRIVATE_KEY" > key.pem
+    - chmod 600 key.pem
+    - |
+      ssh -o StrictHostKeyChecking=no -i key.pem $PROD_EC2_USER@$PROD_EC2_PUBLIC_IP << 'ENDSSH'
+        cd /home/ec2-user/deploy
+        source .env_server
+        aws configure set aws_access_key_id "$AWS_ACCESS_KEY"
+        aws configure set aws_secret_access_key "$AWS_SECRET_KEY"
+        aws configure set region "$AWS_REGION"
+        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URL
+        docker-compose stop api-telecom
+        docker system prune -af
+        docker-compose --env-file .env_server pull api-telecom
+        docker-compose --env-file .env_server up -d --build api-telecom
+      ENDSSH
+    - rm key.pem
