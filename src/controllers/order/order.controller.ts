@@ -23,12 +23,14 @@ export class OrderController {
   @UsePipes(new ZodValidationPipe(CreateOrderSchema))
   async createOrder(@Request() req: any, @Body() createOrderDto: CreateOrderDto) {
     try {
-      const order = await this.orderService.create(req.user.id, createOrderDto);
+      console.log({req: req.user})
+      const order = await this.orderService.create(req.user.sub, createOrderDto);
       return Response.success({
         data: order,
         message: 'Create order successful',
       });
     } catch (error) {
+      console.log(error);
       return Response.error({
         errorCode: error.message,
         message: 'Create order failed',
@@ -94,7 +96,7 @@ export class OrderController {
   @UsePipes(new ZodValidationPipe(CreateInvoiceSchema))
   async generateInvoice(@Request() req: any, @Param('id') id: string, @Body() createInvoiceDto: CreateInvoiceDto) {
     try {
-      const invoice = await this.orderService.generateInvoice(req.user.id, {
+      const invoice = await this.orderService.generateInvoice(req.user.sub, {
         ...createInvoiceDto,
         orderId: Number(id),
       });

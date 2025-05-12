@@ -1,0 +1,36 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description:
+globs:
+alwaysApply: false
+---
+# NestJS Best Practices
+
+## Context
+- Apply to all NestJS application code
+- Ensures code quality, maintainability, and consistency
+
+## Critical Rules
+- Use dependency injection for modularity and testability
+- Implement proper error handling with custom exceptions and filters
+- Utilize guards, interceptors, and pipes for cross-cutting concerns
+- Follow the official NestJS style guide for code structure
+
+## Examples
+<example>
+// Good: Using dependency injection in a service
+@Injectable()
+export class UserService {
+  constructor(private readonly repo: UserRepository) {}
+}
+</example>
+
+<example type="invalid">
+// Bad: Instantiating dependencies directly
+const repo = new UserRepository();
+</example>
+

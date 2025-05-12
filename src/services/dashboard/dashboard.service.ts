@@ -8,14 +8,15 @@ export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getRevenueStatistics(query: RevenueQueryDto): Promise<RevenueSummary> {
-    const { startDate, endDate, groupBy } = query;
+    const { period } = query;
+    const { startDate, endDate } = this.getDateRange(period);
 
     // Get total revenue and orders
     const totalStats = await this.prisma.order.aggregate({
       where: {
         createdAt: {
-          gte: new Date(startDate),
-          lte: new Date(endDate),
+          gte: startDate,
+          lte: endDate,
         },
         deletedAt: null,
         status: 'COMPLETED',
@@ -29,7 +30,7 @@ export class DashboardService {
     });
 
     // Get revenue by period
-    const revenueByPeriod = await this.getRevenueByPeriod(startDate, endDate, groupBy);
+    const revenueByPeriod = await this.getRevenueByPeriod(startDate, endDate, period);
 
     // Get top selling items
     const topSellingItems = await this.getTopSellingItems(startDate, endDate);
@@ -49,52 +50,81 @@ export class DashboardService {
     };
   }
 
+  private getDateRange(period: 'day' | 'week' | 'month'): { startDate: Date; endDate: Date } {
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
+
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0);
+
+    switch (period) {
+      case 'day':
+        // Today
+        break;
+      case 'week':
+        // Last 7 days
+        startDate.setDate(startDate.getDate() - 6);
+        break;
+      case 'month':
+        // Last 30 days
+        startDate.setDate(startDate.getDate() - 29);
+        break;
+    }
+
+    return { startDate, endDate };
+  }
+
   private async getRevenueByPeriod(
-    startDate: string,
-    endDate: string,
-    groupBy: 'day' | 'month' | 'year',
+    startDate: Date,
+    endDate: Date,
+    period: 'day' | 'week' | 'month',
   ) {
-    const format = {
-      day: 'YYYY-MM-DD',
-      month: 'YYYY-MM',
-      year: 'YYYY',
-    }[groupBy];
+    const groupBy = period === 'month' ? 'day' : 'hour';
+    const interval = groupBy === 'hour' ? '1 hour' : '1 day';
 
     const result = await this.prisma.$queryRaw<Array<{
       date: string;
       totalAmount: number;
       orderCount: number;
     }>>`
+      WITH time_series AS (
+        SELECT generate_series(
+          date_trunc(${groupBy}, ${startDate}::timestamptz),
+          date_trunc(${groupBy}, ${endDate}::timestamptz),
+          ${interval}::interval
+        ) as time_slot
+      )
       SELECT 
-        DATE_TRUNC(${groupBy}, "createdAt")::text as date,
-        SUM("totalAmount") as "totalAmount",
-        COUNT(*) as "orderCount"
-      FROM orders
-      WHERE 
-        "createdAt" >= ${new Date(startDate)}
-        AND "createdAt" <= ${new Date(endDate)}
-        AND "deletedAt" IS NULL
-        AND status = 'COMPLETED'
-      GROUP BY DATE_TRUNC(${groupBy}, "createdAt")
-      ORDER BY date ASC
+        time_slot::text as date,
+        COALESCE(SUM(o."totalAmount"), 0) as "totalAmount",
+        COALESCE(COUNT(o.id), 0) as "orderCount"
+      FROM time_series ts
+      LEFT JOIN orders o ON 
+        date_trunc(${groupBy}, o."createdAt") = ts.time_slot
+        AND o."deletedAt" IS NULL
+        AND o.status = 'COMPLETED'
+      GROUP BY ts.time_slot
+      ORDER BY ts.time_slot ASC
     `;
 
     return result.map(item => ({
       date: item.date,
       totalAmount: Number(item.totalAmount),
       orderCount: Number(item.orderCount),
-      averageOrderValue: Number(item.totalAmount) / Number(item.orderCount),
+      averageOrderValue: item.orderCount > 0 
+        ? Number(item.totalAmount) / Number(item.orderCount)
+        : 0,
     }));
   }
 
-  private async getTopSellingItems(startDate: string, endDate: string) {
+  private async getTopSellingItems(startDate: Date, endDate: Date) {
     const result = await this.prisma.orderItem.groupBy({
       by: ['menuItemId'],
       where: {
         order: {
           createdAt: {
-            gte: new Date(startDate),
-            lte: new Date(endDate),
+            gte: startDate,
+            lte: endDate,
           },
           deletedAt: null,
           status: 'COMPLETED',
@@ -131,14 +161,14 @@ export class DashboardService {
     });
   }
 
-  private async getPaymentMethodDistribution(startDate: string, endDate: string) {
+  private async getPaymentMethodDistribution(startDate: Date, endDate: Date) {
     const result = await this.prisma.payment.groupBy({
       by: ['method'],
       where: {
         order: {
           createdAt: {
-            gte: new Date(startDate),
-            lte: new Date(endDate),
+            gte: startDate,
+            lte: endDate,
           },
           deletedAt: null,
           status: 'COMPLETED',

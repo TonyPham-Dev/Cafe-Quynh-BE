@@ -1,12 +1,19 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
 export const RevenueQuerySchema = z.object({
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime(),
-  groupBy: z.enum(['day', 'month', 'year']),
+  period: z.enum(['day', 'week', 'month']),
 });
 
-export type RevenueQueryDto = z.infer<typeof RevenueQuerySchema>;
+export class RevenueQueryDto extends createZodDto(RevenueQuerySchema) {
+  @ApiProperty({
+    description: 'Time period for revenue statistics',
+    enum: ['day', 'week', 'month'],
+    example: 'day'
+  })
+  period: 'day' | 'week' | 'month';
+}
 
 export interface RevenueData {
   date: string;
@@ -19,16 +26,21 @@ export interface RevenueSummary {
   totalRevenue: number;
   totalOrders: number;
   averageOrderValue: number;
-  revenueByPeriod: RevenueData[];
-  topSellingItems: {
+  revenueByPeriod: Array<{
+    date: string;
+    totalAmount: number;
+    orderCount: number;
+    averageOrderValue: number;
+  }>;
+  topSellingItems: Array<{
     id: number;
     name: string;
     quantity: number;
     revenue: number;
-  }[];
-  paymentMethodDistribution: {
+  }>;
+  paymentMethodDistribution: Array<{
     method: string;
     count: number;
     amount: number;
-  }[];
+  }>;
 } 

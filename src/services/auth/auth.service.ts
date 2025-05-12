@@ -78,6 +78,7 @@ export class AuthService {
       username: signUpPayload.username,
       password: await helper.hashData(signUpPayload.password),
       role: UserRoles.ADMIN,
+      fullName: signUpPayload.username,
     });
 
     const tokens = await this.getTokens({

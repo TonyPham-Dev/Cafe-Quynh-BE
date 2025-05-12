@@ -1,3 +1,5 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
 export const SearchUserSchema = z.object({
@@ -8,4 +10,22 @@ export const SearchUserSchema = z.object({
   limit: z.number().min(1).max(100).default(10),
 });
 
-export type SearchUserDto = z.infer<typeof SearchUserSchema>; 
+export class SearchUserDto extends createZodDto(SearchUserSchema) {
+  @ApiProperty({
+    description: 'Search keyword',
+    example: 'John Doe'
+  })
+  search: string;
+
+  @ApiProperty({
+    description: 'Role',
+    example: 'ADMIN'
+  })
+  role: 'ADMIN' | 'STAFF';
+
+  @ApiProperty({
+    description: 'Active',
+    example: true
+  })
+  active: boolean;
+}

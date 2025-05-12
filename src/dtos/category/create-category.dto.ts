@@ -1,3 +1,5 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
 export const CreateCategorySchema = z.object({
@@ -6,4 +8,26 @@ export const CreateCategorySchema = z.object({
   type: z.string(),
 });
 
-export type CreateCategoryDto = z.infer<typeof CreateCategorySchema>; 
+export class CreateCategoryDto extends createZodDto(CreateCategorySchema) {
+  @ApiProperty({
+    description: 'Name of the category',
+    minLength: 2,
+    maxLength: 50,
+    example: 'Category 1'
+  })
+  name: string;
+
+  @ApiProperty({
+    description: 'Description of the category',
+    maxLength: 500,
+    example: 'Description of the category'
+  })
+  description: string;
+
+  @ApiProperty({
+    description: 'Type of the category',
+    example: 'Type of the category'
+  })
+  type: string;
+}
+

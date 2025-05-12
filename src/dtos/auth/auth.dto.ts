@@ -1,3 +1,5 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
 export const SignUpSchema = z.object({
@@ -16,5 +18,19 @@ export const SignUpSchema = z.object({
     .min(6, 'Password must be at least 6 characters'),
 });
 
-// Tạo type từ schema
-export type SignUpDto = z.infer<typeof SignUpSchema>;
+export class SignUpDto extends createZodDto(SignUpSchema) {
+  @ApiProperty({
+    description: 'Username of the user',
+    minLength: 1,
+    maxLength: 50,
+    example: 'johndoe'
+  })
+  username: string;
+
+  @ApiProperty({
+    description: 'Password of the user',
+    minLength: 6,
+    example: 'password123'
+  })
+  password: string;
+}

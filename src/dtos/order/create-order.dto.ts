@@ -1,3 +1,5 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
 export const OrderItemSchema = z.object({
@@ -11,5 +13,37 @@ export const CreateOrderSchema = z.object({
   items: z.array(OrderItemSchema).min(1),
 });
 
-export type CreateOrderDto = z.infer<typeof CreateOrderSchema>;
-export type OrderItemDto = z.infer<typeof OrderItemSchema>; 
+export class CreateOrderDto extends createZodDto(CreateOrderSchema) {
+  @ApiProperty({
+    description: 'Table ID',
+    example: 1
+  })
+  tableId: number;
+
+  @ApiProperty({
+    description: 'Items',
+    example: [{ menuItemId: 1, quantity: 1, notes: 'Notes' }]
+  })
+  items: OrderItemDto[];
+}
+
+export class OrderItemDto extends createZodDto(OrderItemSchema) {
+  @ApiProperty({
+    description: 'Menu item ID',
+    example: 1
+  })
+  menuItemId: number;
+
+  @ApiProperty({
+    description: 'Quantity',
+    example: 1
+  })
+  quantity: number;
+
+  @ApiProperty({
+    description: 'Notes',
+    example: 'Notes'
+  })
+  notes: string;
+}
+

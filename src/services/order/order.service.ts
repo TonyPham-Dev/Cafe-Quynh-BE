@@ -59,7 +59,7 @@ export class OrderService {
 
     // Generate order number (you can customize this format)
     const orderNumber = `ORD${Date.now()}`;
-
+    console.log({userId})
     // Create order with items in a transaction
     return this.prisma.$transaction(async (prisma) => {
       // Create order
