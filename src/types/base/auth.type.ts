@@ -5,6 +5,8 @@ export type AuthResponse = {
   accessToken: string;
   refreshToken: string;
   username: string;
+  phone: string;
+  role: UserRoles;
 };
 
 export type AuthenticationConfig = {

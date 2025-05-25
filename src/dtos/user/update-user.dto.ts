@@ -4,12 +4,11 @@ import { ApiProperty } from '@nestjs/swagger';
 import { createZodDto } from 'nestjs-zod';
 
 export const UpdateUserSchema = z.object({
-  username: z.string().min(3).max(50).optional(),
-  fullName: z.string().min(2).max(100).optional(),
-  email: z.string().email().optional(),
-  phone: z.string().regex(/^[0-9]{10,11}$/).optional(),
+  username: z.string().optional(),
+  fullName: z.string().optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
   role: z.enum([UserRoles.ADMIN, UserRoles.STAFF]).optional(),
-  active: z.boolean().optional(),
 });
 
 export class UpdateUserDto extends createZodDto(UpdateUserSchema) {
@@ -43,9 +42,5 @@ export class UpdateUserDto extends createZodDto(UpdateUserSchema) {
   })
   role: 'ADMIN' | 'STAFF';
 
-  @ApiProperty({
-    description: 'Active',
-    example: true
-  })
-  active: boolean;
+
 }

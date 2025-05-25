@@ -4,10 +4,8 @@ import { z } from 'zod';
 
 export const SearchUserSchema = z.object({
   search: z.string().optional(),
-  role: z.enum(['ADMIN', 'STAFF']).optional(),
-  active: z.boolean().optional(),
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(10),
+  page: z.any().optional(),
+  limit: z.any().optional(),
 });
 
 export class SearchUserDto extends createZodDto(SearchUserSchema) {
@@ -18,14 +16,14 @@ export class SearchUserDto extends createZodDto(SearchUserSchema) {
   search: string;
 
   @ApiProperty({
-    description: 'Role',
-    example: 'ADMIN'
+    description: 'Page number',
+    example: 1
   })
-  role: 'ADMIN' | 'STAFF';
+  page: number;
 
   @ApiProperty({
-    description: 'Active',
-    example: true
+    description: 'Limit number',
+    example: 10
   })
-  active: boolean;
+  limit: number;
 }
