@@ -57,6 +57,8 @@ export class AuthService {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         username: user.username,
+        phone: user.phone,
+        role: user.role,
       };
     } catch (error) {
       if (error instanceof BadRequestException || error instanceof ForbiddenException) {
@@ -95,6 +97,8 @@ export class AuthService {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       username: user.username,
+      phone: user.phone,
+      role: user.role,
     };
   }
 

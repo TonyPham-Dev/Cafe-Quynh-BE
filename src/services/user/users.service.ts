@@ -119,8 +119,8 @@ export class UserService {
   }
 
   async searchUsers(searchDto: SearchUserDto) {
-    const { search, role, active, page, limit } = searchDto;
-    const skip = (page - 1) * limit;
+    const { search, page, limit } = searchDto;
+    const skip = (Number(page) - 1) * Number(limit);    
 
     const where: Prisma.UserWhereInput = {
       deletedAt: null,
@@ -133,14 +133,6 @@ export class UserService {
         { email: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search, mode: 'insensitive' } },
       ];
-    }
-
-    if (role) {
-      where.role = role;
-    }
-
-    if (typeof active === 'boolean') {
-      where.active = active;
     }
 
     const [users, total] = await Promise.all([
@@ -158,21 +150,20 @@ export class UserService {
           updatedAt: true,
         },
         skip,
-        take: limit,
+        take: Number(limit),
         orderBy: {
           createdAt: 'desc',
         },
       }),
       this.prisma.user.count({ where }),
     ]);
-
     return {
       data: users,
       meta: {
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / Number(limit)),
       },
     };
   }

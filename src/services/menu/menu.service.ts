@@ -69,8 +69,8 @@ export class MenuService {
   }
 
   async search(searchDto: SearchMenuItemDto) {
-    const { search, category, active, page, limit } = searchDto;
-    const skip = (page - 1) * limit;
+    const { search, page = 1, limit = 10 } = searchDto;
+    const skip = (page - 1) * Number(limit);
 
     const where: Prisma.MenuItemWhereInput = {
       deletedAt: null,
@@ -81,16 +81,6 @@ export class MenuService {
         { name: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
       ];
-    }
-
-    if (category) {
-      where.category = {
-        name: category,
-      };
-    }
-
-    if (typeof active === 'boolean') {
-      where.active = active;
     }
 
     const [items, total] = await Promise.all([
@@ -108,7 +98,7 @@ export class MenuService {
           updatedAt: true,
         },
         skip,
-        take: limit,
+        take: Number(limit),
         orderBy: {
           createdAt: 'desc',
         },
@@ -122,7 +112,7 @@ export class MenuService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / Number(limit)),
       },
     };
   }

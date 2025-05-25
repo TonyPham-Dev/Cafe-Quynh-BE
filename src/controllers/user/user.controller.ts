@@ -43,10 +43,14 @@ export class UserController {
     try {
       const result = await this.userService.searchUsers(searchDto);
       return Response.success({
-        data: result.data,
+        data: {
+          users: result.data,
+          meta: result.meta,
+        },
         message: 'Search users successful',
       });
     } catch (error) {
+      console.log(error);
       return Response.error({
         errorCode: error.message,
         message: 'Search users failed',
@@ -72,6 +76,7 @@ export class UserController {
         message: 'Create user successful',
       });
     } catch (error) {
+      console.log(error);
       return Response.error({
         errorCode: error.message,
         message: 'Create user failed',
@@ -81,7 +86,6 @@ export class UserController {
 
   @Put(':id')
   @Roles(UserRoles.ADMIN)
-  @UsePipes(new ZodValidationPipe(UpdateUserSchema))
   async updateUser(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,

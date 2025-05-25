@@ -4,10 +4,11 @@ import { Response } from 'src/dtos/base/response.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from 'src/decorators/roles.decorator';
 import { RoleGuard } from 'src/guards/role.guard';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiBody, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { UserRoles } from '@prisma/client';
 import { CreateOrderDto, CreateOrderSchema } from '../../dtos/order/create-order.dto';
 import { CreateInvoiceDto, CreateInvoiceSchema } from '../../dtos/order/create-invoice.dto';
+import { AddItemsDto, AddItemsSchema } from '../../dtos/order/add-items.dto';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { ErrorCode } from 'src/types/base/error-code.type';
 
@@ -108,6 +109,52 @@ export class OrderController {
       return Response.error({
         errorCode: error.message,
         message: 'Failed to generate invoice',
+      });
+    }
+  }
+
+  @Post(':id/add-items')
+  @ApiOperation({ summary: 'Add items to an existing order' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiBody({
+    type: AddItemsDto,
+    description: 'Items to add to the order',
+    examples: {
+      example1: {
+        summary: 'Add a single item',
+        value: {
+          items: [{ menuItemId: 1, quantity: 1, notes: 'Extra spicy' }]
+        }
+      },
+      example2: {
+        summary: 'Add multiple items',
+        value: {
+          items: [
+            { menuItemId: 1, quantity: 2, notes: 'No onions' },
+            { menuItemId: 2, quantity: 1 }
+          ]
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 200, description: 'Items added successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request or order not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  async addItems(
+    @Param('id') id: string,
+    @Body() addItemsDto: AddItemsDto
+  ) {
+    try {
+      const updatedOrder = await this.orderService.addItems(Number(id), addItemsDto);
+      return Response.success({
+        data: updatedOrder,
+        message: 'Add items to order successful',
+      });
+    } catch (error) {
+      console.log(error);
+      return Response.error({
+        errorCode: error.message,
+        message: 'Add items to order failed',
       });
     }
   }

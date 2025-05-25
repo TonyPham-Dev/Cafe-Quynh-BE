@@ -113,7 +113,6 @@ export class TableController {
 
   @Put(':id')
   @Roles(UserRoles.ADMIN)
-  @UsePipes(new ZodValidationPipe(UpdateTableSchema))
   @ApiOperation({ summary: 'Update table' })
   @ApiParam({ name: 'id', description: 'Table ID' })
   @ApiBody({

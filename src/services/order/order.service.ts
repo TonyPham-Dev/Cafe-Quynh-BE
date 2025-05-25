@@ -3,6 +3,7 @@ import { PrismaService } from 'src/repositories/database/prisma.service';
 import { CreateOrderDto, OrderItemDto } from '../../dtos/order/create-order.dto';
 import { CreateInvoiceDto } from '../../dtos/order/create-invoice.dto';
 import { Prisma, PaymentMethod, PaymentStatus } from '@prisma/client';
+import { AddItemsDto } from '../../dtos/order/add-items.dto';
 
 @Injectable()
 export class OrderService {
@@ -33,7 +34,7 @@ export class OrderService {
         active: true,
       },
     });
-
+    console.log({menuItems, items: data.items})
     if (menuItems.length !== data.items.length) {
       throw new BadRequestException('Some menu items are not available');
     }
@@ -243,5 +244,98 @@ export class OrderService {
     };
 
     return invoice;
+  }
+
+  async addItems(orderId: number, data: AddItemsDto) {
+    // Get the order and verify it exists and is not completed
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        deletedAt: null,
+        status: {
+          not: 'COMPLETED'
+        }
+      }
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found or already completed');
+    }
+
+    // Get menu items and validate they exist
+    const menuItems = await this.prisma.menuItem.findMany({
+      where: {
+        id: { in: data.items.map(item => item.menuItemId) },
+        deletedAt: null,
+        active: true,
+      },
+    });
+
+    if (menuItems.length !== data.items.length) {
+      throw new BadRequestException('Some menu items are not available');
+    }
+
+    // Calculate additional amount and prepare order items
+    let additionalAmount = new Prisma.Decimal(0);
+    const orderItems: Prisma.OrderItemCreateWithoutOrderInput[] = [];
+
+    for (const item of data.items) {
+      const menuItem = menuItems.find(mi => mi.id === item.menuItemId);
+      if (!menuItem) continue;
+
+      const itemTotal = menuItem.price.mul(item.quantity);
+      additionalAmount = additionalAmount.add(itemTotal);
+
+      orderItems.push({
+        menuItem: { connect: { id: menuItem.id } },
+        quantity: item.quantity,
+        price: menuItem.price,
+        notes: item.notes,
+      });
+    }
+
+    // Update order with new items in a transaction
+    return this.prisma.$transaction(async (prisma) => {
+      // Create new order items
+      await prisma.orderItem.createMany({
+        data: orderItems.map(item => ({
+          orderId,
+          menuItemId: item.menuItem.connect!.id,
+          quantity: item.quantity,
+          price: item.price,
+          notes: item.notes,
+        })),
+      });
+
+      // Update order total amount
+      await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          totalAmount: order.totalAmount.add(additionalAmount),
+        },
+      });
+
+      // Fetch updated order with all relations
+      const updatedOrder = await prisma.order.findFirst({
+        where: { id: orderId },
+        include: {
+          items: {
+            include: {
+              menuItem: true,
+            },
+          },
+          table: true,
+          user: {
+            select: {
+              id: true,
+              username: true,
+              fullName: true,  
+            },
+          },
+        },
+      });
+
+      return updatedOrder;
+    });
   }
 } 

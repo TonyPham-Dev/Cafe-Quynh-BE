@@ -27,6 +27,7 @@ export class MenuController {
         message: 'Search menu items successful',
       });
     } catch (error) {
+      console.log(error);
       return Response.error({
         errorCode: error.message,
         message: 'Search menu items failed',
@@ -54,7 +55,6 @@ export class MenuController {
 
   @Put(':id')
   @Roles(UserRoles.ADMIN)
-  @UsePipes(new ZodValidationPipe(UpdateMenuItemSchema))
   async updateMenuItem(
     @Param('id') id: string,
     @Body() updateMenuItemDto: UpdateMenuItemDto,
