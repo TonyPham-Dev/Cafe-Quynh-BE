@@ -126,12 +126,12 @@ export class UserService {
       deletedAt: null,
     };
 
-    if (search) {
+    if (search?.trim()) {
       where.OR = [
-        { username: { contains: search, mode: 'insensitive' } },
-        { fullName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } },
+        { username: { contains: search.trim(), mode: 'insensitive' } },
+        { fullName: { contains: search.trim(), mode: 'insensitive' } },
+        { email: { contains: search.trim(), mode: 'insensitive' } },
+        { phone: { contains: search.trim(), mode: 'insensitive' } },
       ];
     }
 

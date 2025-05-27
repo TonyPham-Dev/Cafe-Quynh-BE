@@ -34,6 +34,23 @@ export class MenuController {
     }
   }
 
+  @Get('all')
+  async getAllMenuItems() {
+    try {
+      const result = await this.menuService.findMany();
+      return Response.success({
+        data: result,
+        message: 'Get all menu items successful',
+      });
+    } catch (error) {
+      return Response.error({
+        errorCode: error.message,
+        message: 'Get all menu items failed',
+      });
+    }
+  }
+
+
   @Post()
   @Roles(UserRoles.ADMIN)
   @UsePipes(new ZodValidationPipe(CreateMenuItemSchema))
@@ -54,7 +71,6 @@ export class MenuController {
 
   @Put(':id')
   @Roles(UserRoles.ADMIN)
-  @UsePipes(new ZodValidationPipe(UpdateMenuItemSchema))
   async updateMenuItem(
     @Param('id') id: string,
     @Body() updateMenuItemDto: UpdateMenuItemDto,
@@ -66,6 +82,7 @@ export class MenuController {
         message: 'Update menu item successful',
       });
     } catch (error) {
+      console.log(error);
       return Response.error({
         errorCode: error.message,
         message: 'Update menu item failed',

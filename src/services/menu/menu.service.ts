@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { CreateMenuItemDto } from '../../dtos/menu/create-menu-item.dto';
 import { UpdateMenuItemDto } from '../../dtos/menu/update-menu-item.dto';
 import { SearchMenuItemDto } from '../../dtos/menu/search-menu-item.dto';
+import { ErrorCode } from 'src/types/base/error-code.type';
 
 @Injectable()
 export class MenuService {
@@ -28,7 +29,19 @@ export class MenuService {
   async update(id: number, data: UpdateMenuItemDto) {
     const menuItem = await this.findById(id);
     if (!menuItem) {
-      throw new BadRequestException('Menu item not found');
+      throw new Error(ErrorCode.NOT_FOUND);
+    }
+
+    if (data.category) {
+      const category = await this.prisma.category.findFirst({
+        where: {
+          name: data.category,
+          deletedAt: null,
+        },
+      });
+      if (!category) {
+        throw new Error('Category not found');
+      }
     }
 
     return this.prisma.menuItem.update({
@@ -63,6 +76,14 @@ export class MenuService {
     return this.prisma.menuItem.findFirst({
       where: {
         id,
+        deletedAt: null,
+      },
+    });
+  }
+
+  async findMany() {
+    return this.prisma.menuItem.findMany({
+      where: {
         deletedAt: null,
       },
     });

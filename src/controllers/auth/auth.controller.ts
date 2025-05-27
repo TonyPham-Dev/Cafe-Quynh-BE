@@ -24,6 +24,7 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(LoginSchema))
   async signIn(@Body() loginData: LoginDto) {
     try {
+      console.log(loginData);
       const data = await this.authService.signIn(loginData);
       return Response.success({
         data,

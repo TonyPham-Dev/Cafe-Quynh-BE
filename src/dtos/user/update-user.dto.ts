@@ -15,37 +15,43 @@ export const UpdateUserSchema = z.object({
 export class UpdateUserDto extends createZodDto(UpdateUserSchema) {
   @ApiProperty({
     description: 'Username',
-    example: 'John Doe'
+    example: 'John Doe',
+    required: false
   })
-  username: string;
+  username?: string;
 
   @ApiProperty({
     description: 'Full name',
-    example: 'John Doe'
+    example: 'John Doe',
+    required: false
   })
-  fullName: string;
+  fullName?: string;
 
   @ApiProperty({
     description: 'Email',
-    example: 'john.doe@example.com'
+    example: 'john.doe@example.com',
+    required: false
   })
-  email: string;
+  email?: string;
 
   @ApiProperty({
     description: 'Phone',
-    example: '0123456789'
+    example: '0123456789',
+    required: false
   })
-  phone: string;
+  phone?: string;
 
   @ApiProperty({
     description: 'Role',
-    example: 'ADMIN'
+    example: 'ADMIN',
+    required: false
   })
-  role: 'ADMIN' | 'STAFF';
+  role?: 'ADMIN' | 'STAFF';
 
   @ApiProperty({
     description: 'Active',
-    example: true
+    example: true,
+    required: false
   })
-  active: boolean;
+  active?: boolean;
 }

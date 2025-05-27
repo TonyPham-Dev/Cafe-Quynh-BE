@@ -81,13 +81,16 @@ export class UserController {
 
   @Put(':id')
   @Roles(UserRoles.ADMIN)
-  @UsePipes(new ZodValidationPipe(UpdateUserSchema))
   async updateUser(
     @Param('id') id: string,
-    @Body() updateUserDto: UpdateUserDto,
+    @Body(new ZodValidationPipe(UpdateUserSchema)) updateUserDto: UpdateUserDto,
   ) {
     try {
-      const user = await this.userService.update(Number(id), updateUserDto);
+      const userId = parseInt(id, 10);
+      if (isNaN(userId)) {
+        throw new Error('Invalid user ID');
+      }
+      const user = await this.userService.update(userId, updateUserDto);
       return Response.success({
         data: {
           id: user.id,
@@ -101,6 +104,7 @@ export class UserController {
         message: 'Update user successful',
       });
     } catch (error) {
+      console.log(error)
       return Response.error({
         errorCode: error.message,
         message: 'Update user failed',
