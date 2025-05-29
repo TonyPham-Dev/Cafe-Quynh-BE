@@ -13,7 +13,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 @Controller('dashboard')
 @ApiBearerAuth('access-token')
 @UseGuards(AuthGuard('jwt'), RoleGuard)
-@Roles(UserRoles.ADMIN)
+@Roles(UserRoles.ADMIN, UserRoles.STAFF)
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
@@ -26,45 +26,6 @@ export class DashboardController {
     description: 'Time period for revenue statistics',
     example: 'day'
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Returns revenue statistics including total revenue, orders, and breakdowns',
-    schema: {
-      example: {
-        data: {
-          totalRevenue: 1500000,
-          totalOrders: 50,
-          averageOrderValue: 30000,
-          revenueByPeriod: [
-            {
-              date: '2024-03-20 10:00:00',
-              totalAmount: 500000,
-              orderCount: 15,
-              averageOrderValue: 33333.33
-            }
-          ],
-          topSellingItems: [
-            {
-              id: 1,
-              name: 'Cà phê sữa',
-              quantity: 100,
-              revenue: 200000
-            }
-          ],
-          paymentMethodDistribution: [
-            {
-              method: 'CASH',
-              count: 30,
-              amount: 900000
-            }
-          ]
-        },
-        message: 'Get revenue statistics successful'
-      }
-    }
-  })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
   async getRevenueStatistics(@Query() query: RevenueQueryDto) {
     try {
       const statistics = await this.dashboardService.getRevenueStatistics(query);
@@ -77,6 +38,24 @@ export class DashboardController {
       return Response.error({
         errorCode: error.message,
         message: 'Failed to get revenue statistics',
+      });
+    }
+  }
+
+  @Get('overview')
+  @ApiOperation({ summary: 'Get dashboard overview' })
+  async getDashboardOverview() {
+    try {
+      const overview = await this.dashboardService.getDashboardOverview();
+      return Response.success({
+        data: overview,
+        message: 'Get dashboard overview successful',
+      });
+    } catch (error) {
+      console.log(error);
+      return Response.error({
+        errorCode: error.message,
+        message: 'Failed to get dashboard overview',
       });
     }
   }

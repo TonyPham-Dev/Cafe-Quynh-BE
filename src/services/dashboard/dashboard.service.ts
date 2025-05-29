@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/repositories/database/prisma.service';
 import { RevenueQueryDto, RevenueSummary } from '../../dtos/dashboard/revenue.dto';
 import { Prisma } from '@prisma/client';
+import { DateTime } from 'luxon';
 
 @Injectable()
 export class DashboardService {
@@ -107,14 +108,28 @@ export class DashboardService {
       ORDER BY ts.time_slot ASC
     `;
 
-    return result.map(item => ({
-      date: item.date,
-      totalAmount: Number(item.totalAmount),
-      orderCount: Number(item.orderCount),
-      averageOrderValue: item.orderCount > 0 
-        ? Number(item.totalAmount) / Number(item.orderCount)
-        : 0,
-    }));
+    // Chuyển đổi sang giờ Việt Nam
+    return result.map(item => {
+      // Log để kiểm tra định dạng ngày thực tế
+      console.log('item.date:', item.date);
+      let vnDate;
+      try {
+        vnDate = DateTime.fromSQL(item.date, { zone: 'utc' }).setZone('Asia/Ho_Chi_Minh');
+        if (!vnDate.isValid) {
+          vnDate = DateTime.fromISO(item.date, { zone: 'utc' }).setZone('Asia/Ho_Chi_Minh');
+        }
+      } catch {
+        vnDate = DateTime.invalid('Invalid DateTime');
+      }
+      return {
+        date: vnDate.isValid ? vnDate.toFormat('yyyy-MM-dd HH:mm') : item.date,
+        totalAmount: Number(item.totalAmount),
+        orderCount: Number(item.orderCount),
+        averageOrderValue: item.orderCount > 0 
+          ? Number(item.totalAmount) / Number(item.orderCount)
+          : 0,
+      };
+    });
   }
 
   private async getTopSellingItems(startDate: Date, endDate: Date) {
@@ -188,5 +203,126 @@ export class DashboardService {
       count: item._count.id,
       amount: Number(item._sum.amount),
     }));
+  }
+
+  async getDashboardOverview() {
+    // 1. Thời gian
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(todayStart.getDate() - 1);
+    const weekStart = new Date(todayStart);
+    weekStart.setDate(todayStart.getDate() - todayStart.getDay()); // Chủ nhật đầu tuần
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // 2. Doanh thu hôm nay, tuần, tháng
+    const [revenueToday, revenueYesterday, revenueWeek, revenueMonth] = await Promise.all([
+      this.prisma.order.aggregate({
+        where: { createdAt: { gte: todayStart }, deletedAt: null, status: 'COMPLETED' },
+        _sum: { totalAmount: true }
+      }),
+      this.prisma.order.aggregate({
+        where: { createdAt: { gte: yesterdayStart, lt: todayStart }, deletedAt: null, status: 'COMPLETED' },
+        _sum: { totalAmount: true }
+      }),
+      this.prisma.order.aggregate({
+        where: { createdAt: { gte: weekStart }, deletedAt: null, status: 'COMPLETED' },
+        _sum: { totalAmount: true }
+      }),
+      this.prisma.order.aggregate({
+        where: { createdAt: { gte: monthStart }, deletedAt: null, status: 'COMPLETED' },
+        _sum: { totalAmount: true }
+      })
+    ]);
+
+    // 3. Tổng đơn hôm nay, hôm qua
+    const [ordersToday, ordersYesterday] = await Promise.all([
+      this.prisma.order.count({ where: { createdAt: { gte: todayStart }, deletedAt: null, status: 'COMPLETED' } }),
+      this.prisma.order.count({ where: { createdAt: { gte: yesterdayStart, lt: todayStart }, deletedAt: null, status: 'COMPLETED' } })
+    ]);
+
+    // 4. Tổng khách hàng
+    const customers = await this.prisma.user.count({ where: { deletedAt: null } });
+
+    // 5. Số bàn đang phục vụ / tổng bàn
+    const [tablesServing, tablesTotal] = await Promise.all([
+      this.prisma.table.count({ where: { status: 'OCCUPIED', deletedAt: null } }),
+      this.prisma.table.count({ where: { deletedAt: null } })
+    ]);
+
+    // 6. % tăng/giảm so với hôm qua
+    const revenueChangePercent = revenueYesterday._sum.totalAmount && Number(revenueYesterday._sum.totalAmount) > 0
+      ? ((Number(revenueToday._sum.totalAmount || 0) - Number(revenueYesterday._sum.totalAmount || 0)) / Number(revenueYesterday._sum.totalAmount)) * 100
+      : null;
+    const ordersChangePercent = ordersYesterday && ordersYesterday > 0
+      ? ((ordersToday - ordersYesterday) / ordersYesterday) * 100
+      : null;
+
+    // 7. 10 đơn hàng gần nhất
+    const recentOrders = await this.prisma.order.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        user: { select: { id: true, username: true, fullName: true } },
+        table: true,
+        items: { include: { menuItem: true } }
+      }
+    });
+
+    // 8. Top 5 sản phẩm bán chạy
+    const topProductsRaw = await this.prisma.orderItem.groupBy({
+      by: ['menuItemId'],
+      where: { order: { status: 'COMPLETED', deletedAt: null } },
+      _sum: { quantity: true, price: true },
+      orderBy: { _sum: { quantity: 'desc' } },
+      take: 5
+    });
+    const menuItems = await this.prisma.menuItem.findMany({ where: { id: { in: topProductsRaw.map(i => i.menuItemId) } } });
+    const topProducts = topProductsRaw.map(item => {
+      const menuItem = menuItems.find(mi => mi.id === item.menuItemId);
+      return {
+        id: item.menuItemId,
+        name: menuItem?.name || 'Unknown',
+        quantity: Number(item._sum.quantity),
+        revenue: Number(item._sum.price) * Number(item._sum.quantity)
+      };
+    });
+
+    // 9. Chi tiết doanh thu/ngày, số đơn/ngày, giá trị TB/ngày (30 ngày gần nhất)
+    const dailyStatsRaw = await this.prisma.$queryRaw<Array<{
+      date: string,
+      totalAmount: number,
+      orderCount: number
+    }>>`
+      SELECT to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') as date,
+        COALESCE(SUM("totalAmount"), 0) as "totalAmount",
+        COUNT(id) as "orderCount"
+      FROM orders
+      WHERE "createdAt" >= NOW() - INTERVAL '29 days' AND "deletedAt" IS NULL AND status = 'COMPLETED'
+      GROUP BY date_trunc('day', "createdAt")
+      ORDER BY date ASC
+    `;
+    const dailyStats = dailyStatsRaw.map(item => ({
+      date: item.date,
+      totalAmount: Number(item.totalAmount),
+      orderCount: Number(item.orderCount),
+      averageOrderValue: item.orderCount > 0 ? Number(item.totalAmount) / Number(item.orderCount) : 0
+    }));
+
+    return {
+      revenueToday: Number(revenueToday._sum.totalAmount || 0),
+      revenueWeek: Number(revenueWeek._sum.totalAmount || 0),
+      revenueMonth: Number(revenueMonth._sum.totalAmount || 0),
+      ordersToday,
+      customers,
+      tablesServing,
+      tablesTotal,
+      revenueChangePercent,
+      ordersChangePercent,
+      recentOrders,
+      topProducts,
+      dailyStats
+    };
   }
 } 

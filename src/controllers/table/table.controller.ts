@@ -178,7 +178,6 @@ export class TableController {
   }
 
   @Put(':id/status')
-  @UsePipes(new ZodValidationPipe(UpdateTableStatusSchema))
   @ApiOperation({ summary: 'Update table status' })
   @ApiParam({ name: 'id', description: 'Table ID' })
   @ApiBody({

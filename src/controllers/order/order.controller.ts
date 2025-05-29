@@ -94,7 +94,6 @@ export class OrderController {
   }
 
   @Post(':id/invoice')
-  @UsePipes(new ZodValidationPipe(CreateInvoiceSchema))
   async generateInvoice(@Request() req: any, @Param('id') id: string, @Body() createInvoiceDto: CreateInvoiceDto) {
     try {
       const invoice = await this.orderService.generateInvoice(req.user.sub, {
@@ -155,6 +154,28 @@ export class OrderController {
       return Response.error({
         errorCode: error.message,
         message: 'Add items to order failed',
+      });
+    }
+  }
+
+
+  // api xuất hoá đơn bằng máy in
+  @Post(':id/print-invoice')
+  @ApiOperation({ summary: 'Print invoice to network printer' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({ status: 200, description: 'Print job queued successfully' })
+  @ApiResponse({ status: 400, description: 'Order not found or printer error' })
+  async printInvoice(@Param('id') id: string) {
+    try {
+      const result = await this.orderService.printInvoice(Number(id));
+      return Response.success({
+        data: result,
+        message: 'Print job queued successfully',
+      });
+    } catch (error) {
+      return Response.error({
+        errorCode: error.message,
+        message: 'Failed to queue print job',
       });
     }
   }
